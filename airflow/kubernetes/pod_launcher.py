@@ -19,6 +19,7 @@ import json
 import time
 from datetime import datetime as dt
 from typing import Optional, Tuple
+from urllib3.exceptions import ProtocolError
 
 import tenacity
 from kubernetes import client, watch
@@ -121,8 +122,12 @@ class PodLauncher(LoggingMixin):
     def _monitor_pod(self, pod: V1Pod, get_logs: bool) -> Tuple[State, Optional[str]]:
         if get_logs:
             logs = self.read_pod_logs(pod)
-            for line in logs:
-                self.log.info(line)
+            try:
+                for line in logs:
+                    self.log.info(line)
+            except ProtocolError as e:
+                self.log.warning("Logs were empty!")
+                self.log.info(e)
         result = None
         if self.extract_xcom:
             while self.base_container_is_running(pod):
